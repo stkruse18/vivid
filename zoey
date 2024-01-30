@@ -1,0 +1,203 @@
+import numpy as np
+import pandas as pd
+import json
+from collections import defaultdict
+from datetime import datetime, timedelta
+import requests
+import urllib
+import pytz
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+
+
+id_to_word = {
+    "0d33e7f2-6601-486b-9f9e-cbe268d8fc88": "NBA", #Rebounds NBA
+    "590e7c83-99fc-419f-bdd8-78bb0a691f8b": "NBA", #PRA NBA
+    "8d718cf2-1487-401e-88f7-f9f799e85871": "NBA", #Points NBA
+    "cd25de54-fbb4-4111-85ac-60a347a8728f": "NBA",  #P+R NBA
+    "ff6438f9-7dad-422e-ae9a-8561636dbff5": "NBA",  # 1QP NBA
+    "80eee07b-f568-4dad-81f6-b05e42aae24e": "NBA",  #P+A NBA
+    "e5346095-1c5e-40f0-bb31-95181490038d": "NBA",  #R+A NBA
+    "4295c94a-3110-417e-953f-a4f3ed0dd18b": "NBA",  #3PT NBA
+    "e3bc1aaa-7964-4a84-bcfa-2d92a4d477a2": "NBA",  #Assists NBA
+    "75c81a08-bed1-4847-8d29-9669665986c3": "NBA",  #DBL-DBL NBA
+    "467daf4a-9606-47fb-94ee-6190fc4804b8": "NBA", #1QR NBA
+    "8060260a-6f07-4453-bd46-bb156308957b": "NHL", #Assists NHL
+    "85a18d7d-2e17-4b69-8605-6c04caeae996": "NHL", #Fantasy NHL
+
+    # Add more mappings as needed
+}
+
+f = open('vivid')
+data = json.load(f)
+player_data_list = []
+
+length = len(data["gret"])
+for i in range(0, length):
+    for player_info in data["gret"][i]["activePlayers"]:
+        player_name = player_info["name"]
+        league = player_info["league"]
+        player_props = player_info["allProps"]
+        #print(f"Player Name: {player_name}")
+        #print(f"League: {league}")
+        #print("Player Props:")
+        #for prop, value in player_props.items():
+            #print(f"  {prop}: {value}")
+        #print("\n")
+        player_data = {
+            "Name": player_name,
+            "League": league,
+            "Player Props": {prop: value for prop, value in player_props.items()}
+        }
+        player_data_list.append(player_data)
+
+data_dict = defaultdict(list)
+for player_info in player_data_list:
+    league = player_info["League"]
+    player_name = player_info["Name"]
+    player_props = player_info.get("Player Props", {})
+
+    # Iterate through player_props
+    for prop, value in player_props.items():
+        data_dict["League"].append(league)
+        data_dict["Player Name"].append(player_name)
+        data_dict["Player Props"].append(prop)
+        data_dict["Value"].append(value)
+        data_dict['Book'].append('Vivid')
+
+# Create DataFrame
+df = pd.DataFrame(data_dict)
+
+
+#response = requests.get('https://api.underdogfantasy.com/beta/v5/over_under_lines')
+#print(response.json())
+
+
+#last in player props is wrong
+#allprops is visible on vivid
+#"_id"
+
+#f = open('ud')
+#data = json.load(f)
+
+ok = requests.get('https://api.underdogfantasy.com/beta/v5/over_under_lines')
+data = ok.json()
+
+
+
+#print(data['over_under_lines'][0]['over_under']['title'])
+#print(len(data['over_under_lines']))
+player_data_list2 = []
+data_dict2 = defaultdict(list)
+for i in range(0,len(data['over_under_lines'])):
+    multiplier = (data['over_under_lines'][i]['options'][0]['payout_multiplier'])
+    if multiplier == '1.0':
+        bigname = (data['over_under_lines'][i]['over_under']['title'])
+        stat = (data['over_under_lines'][i]['over_under']['appearance_stat']['display_stat'])
+        #statid = (data['over_under_lines'][i]['over_under']['appearance_stat']['pickem_stat_id'])
+        appearanceid = (data['over_under_lines'][i]['over_under']['appearance_stat']['appearance_id'])
+        for entry in data['appearances']:
+            if entry['id'] == appearanceid:
+                playerid = entry['player_id']
+        for entry in data['players']:
+            if entry['id'] == playerid:
+                sport = entry['sport_id']
+        result = bigname.replace(stat, '').replace(' O/U', '').strip()
+        #might need period for jr names
+        #print(result)
+        #print(stat)
+        line = (data['over_under_lines'][i]['stat_value'])
+        #print(line)
+        #print(appearanceid)
+        #print(playerid)
+        #print(sport)
+        player_data = {
+            "Name": result,
+            "League": sport,
+            "Player Props": stat,
+            "Value": line
+        }
+        player_data_list2.append(player_data)
+
+        #print(statid)
+        #print(sport)
+#maybe see if pickem stat id can be associated to sport
+for player_info in player_data_list2:
+    league = player_info["League"]
+    player_name = player_info["Name"]
+    prop = player_info['Player Props']
+    value = player_info['Value']
+    data_dict2["League"].append(league)
+    data_dict2["Player Name"].append(player_name)
+    data_dict2["Player Props"].append(prop)
+    data_dict2["Value"].append(value)
+    data_dict2['Book'].append('Underdog')
+
+df2 = pd.DataFrame(data_dict2)
+stat_mapping = {
+    'Points + Rebounds + Assists': 'Pts + Rebs + Asts',
+    'ReceivingYards': 'Receiving Yards',
+    'RushingYards': 'Rushing Yards',
+    'Total Tackles': 'Tackles + Assists',
+    'Anytime TD Scored': 'Rush + Rec TDs',
+    'Rush Attempts': 'Rushing Attempts',
+    '3PT Made': '3-Pointers Made',
+    'Field Goals Made': 'FG Made',
+    'Interceptions Thrown': 'Interceptions',
+    'Pass Attempts': 'Passing Attempts',
+    'PassingYards': 'Passing Yards',
+    'PassingTouchdowns': 'Passing TDs',
+    'Kills Game 1': 'Kills in Map 1',
+    'Pts + Reb': 'Points + Rebounds',
+    'Pts + Ast': 'Points + Assists',
+    'ShotsOnGoal': 'Shots',
+    'Reb + Ast': 'Rebounds + Assists',
+    'Kills Gm 1-2': 'Kills in Maps 1+2',
+    'Shot Attempts': 'Shots Attempted',
+    'Shots OnTarget': 'Shots On Target'
+}
+
+name_mapping = {
+    'Tolu Smith III': 'Tolu Smith'
+}
+
+df['Player Props'] = df['Player Props'].replace(stat_mapping)
+df['Player Name'] = df['Player Name'].replace(name_mapping)
+df2.loc[df2['Player Name'].str.startswith('LoL: '), 'League'] = 'LOL'
+df2.loc[df2['Player Name'].str.startswith('LoL: '), 'Player Name'] = df2['Player Name'].str.replace('LoL: ', '')
+#Probably have to change soccer to FIFA
+#print(df)
+#print(df2)
+
+unique1 = (df['Player Props'].unique())
+unique2 = (df2['Player Props'].unique())
+set1 = set(unique1)
+set2 = set(unique2)
+unique_list1 = list(set1 - set2)
+unique_list2 = list(set2 - set1)
+#Uncomment to fix prop misspellings
+print(unique_list1)
+print(unique_list2)
+desired_width=320
+pd.set_option('display.width', desired_width)
+np.set_printoptions(linewidth=desired_width)
+def remove_trailing_zero(number):
+    number_str = str(number)
+    if '.' in number_str:
+        integer_part, fractional_part = number_str.split('.')
+        if fractional_part.endswith('00'):
+            number_str = integer_part + '.' + fractional_part[:-1]
+    return number_str
+
+merged_df = pd.merge(df, df2, on=['League', 'Player Name', 'Player Props'], suffixes=('_1', '_2'))
+merged_df['Value_1'] = merged_df['Value_1'].apply(lambda x: remove_trailing_zero(x))
+#print(merged_df)
+
+new_df = merged_df[merged_df['Value_1'] != merged_df['Value_2']].copy()
+new_df['Value_1'] = pd.to_numeric(new_df['Value_1'])
+new_df['Value_2'] = pd.to_numeric(new_df['Value_2'])
+new_df['Percent_Difference'] = (abs(new_df['Value_1'] - new_df['Value_2']) / ((new_df['Value_1'] + new_df['Value_2']) / 2)) * 100
+
+# Sort DataFrame by percent difference
+new_df = new_df.sort_values(by='Percent_Difference', ascending=False)
+print(new_df)
