@@ -361,10 +361,82 @@ def nba():
     goddf['Player Props'] = goddf['Player Props'].replace(stat_mapping)
     return goddf
 
-nba = nba()
-oddsmerge = pd.merge(unique_to_df2, nba, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_x'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
+def ncaabb():
+    please = requests.get('https://sportsbook.draftkings.com//sites/US-SB/api/v5/eventgroups/92483/categories/1218/subcategories/12497?format=json')
+    jsoon = please.json()
+    #3s
+    df1 = (zobozoey('CBB', 'Player Threes', 0, jsoon, 'Threes'))
+    please = requests.get('https://sportsbook.draftkings.com//sites/US-SB/api/v5/eventgroups/92483/categories/1215/subcategories/12488?format=json')
+    jsoon = please.json()
+    #pts
+    df2 = (zobozoey('CBB', 'Player Points', 0, jsoon, 'Points'))
+    please = requests.get('https://sportsbook.draftkings.com//sites/US-SB/api/v5/eventgroups/92483/categories/583/subcategories/5001?format=json')
+    jsoon = please.json()
+    #pra
+    df4 = (zobozoey('CBB', 'Player Combos', 0, jsoon, 'Pts + Reb + Ast'))
+    please = requests.get('https://sportsbook.draftkings.com//sites/US-SB/api/v5/eventgroups/92483/categories/583/subcategories/9976?format=json')
+    jsoon = please.json()
+    #P+r
+    df5 = (zobozoey('CBB', 'Player Combos', 1, jsoon, 'Pts + Reb'))
+    please = requests.get('https://sportsbook.draftkings.com//sites/US-SB/api/v5/eventgroups/92483/categories/583/subcategories/9973?format=json')
+    jsoon = please.json()
+    #p+a
+    df6 = (zobozoey('CBB', 'Player Combos', 2, jsoon, 'Pts + Ast'))
+    please = requests.get('https://sportsbook.draftkings.com//sites/US-SB/api/v5/eventgroups/92483/categories/583/subcategories/9974?format=json')
+    jsoon = please.json()
+    #a+r
+    df7 = (zobozoey('CBB', 'Player Combos', 3, jsoon, 'Ast + Reb'))
+    please = requests.get('https://sportsbook.draftkings.com//sites/US-SB/api/v5/eventgroups/92483/categories/1216/subcategories/12492?format=json')
+    jsoon = please.json()
+    #reb
+    df8 = (zobozoey('CBB', 'Player Rebounds', 0, jsoon, 'Rebounds'))
+    please = requests.get('https://sportsbook.draftkings.com//sites/US-SB/api/v5/eventgroups/92483/categories/1217/subcategories/12495?format=json')
+    jsoon = please.json()
+    #assist
+    df10 = (zobozoey('CBB', 'Player Assists', 0, jsoon, 'Assists'))
+    please = requests.get('https://sportsbook.draftkings.com//sites/US-SB/api/v5/eventgroups/92483/categories/1293/subcategories/13508?format=json')
+    jsoon = please.json()
+    #steals
+    df12 = (zobozoey('CBB', 'Player Defense', 0, jsoon, 'Steals'))
+    goddf = pd.concat([df1, df2, df4, df5, df6, df7, df8, df10, df12])
+    stat_mapping = {
+        "Threes": "3-Pointers Made",
+        "Ast + Reb": "Rebounds + Assists",
+        "Pts + Ast": "Points + Assists",
+        "Pts + Reb": "Points + Rebounds"
+    }
+    goddf = goddf.groupby(['League', 'Player Name', 'Player Props', 'Value', 'Book'])['Odds'].apply(
+        lambda x: ' '.join(x)).reset_index()
+    goddf['Player Props'] = goddf['Player Props'].replace(stat_mapping)
+    return goddf
+
+
+#nba = nba()
+"""oddsmerge = pd.merge(unique_to_df2, nba, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_x'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
 oddsmerge = oddsmerge.drop(columns=['Value_y', 'Book_y', 'Value', 'Book'])
 bigmerge = pd.merge(new_df, nba, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_1'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
+bigmerge = bigmerge.drop(columns=['Value', 'Book'])
+print(bigmerge)
+print(oddsmerge)"""
+
+"""ncaabb = ncaabb()
+oddsmerge = pd.merge(oddsmerge, ncaabb, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_x'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
+oddsmerge = oddsmerge.drop(columns=['Value', 'Book'])
+bigmerge = pd.merge(bigmerge, ncaabb, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_1'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
+bigmerge = bigmerge.drop(columns=['Value', 'Book'])
+print(bigmerge)
+print(oddsmerge)"""
+
+def insanezo():
+    nbadf = nba()
+    cbbdf = ncaabb()
+    combine = pd.concat([nbadf, cbbdf])
+    return combine
+
+combine = insanezo()
+oddsmerge = pd.merge(unique_to_df2, combine, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_x'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
+oddsmerge = oddsmerge.drop(columns=['Value_y', 'Book_y', 'Value', 'Book'])
+bigmerge = pd.merge(new_df, combine, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_1'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
 bigmerge = bigmerge.drop(columns=['Value', 'Book'])
 print(bigmerge)
 print(oddsmerge)
