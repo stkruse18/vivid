@@ -203,6 +203,7 @@ merged_df['Value_1'] = merged_df['Value_1'].apply(lambda x: remove_trailing_zero
 #print(merged_df)
 
 new_df = merged_df[merged_df['Value_1'] != merged_df['Value_2']].copy()
+new_df = new_df[new_df['Value_1'] != 'nan']
 new_df['Value_1'] = pd.to_numeric(new_df['Value_1'])
 new_df['Value_2'] = pd.to_numeric(new_df['Value_2'])
 new_df['Percent_Difference'] = (abs(new_df['Value_1'] - new_df['Value_2']) / ((new_df['Value_1'] + new_df['Value_2']) / 2)) * 100
@@ -432,6 +433,7 @@ def insanezo():
     cbbdf = ncaabb()
     combine = pd.concat([nbadf, cbbdf])
     return combine
+#Dont run insanezo if u dont want odds
 
 combine = insanezo()
 oddsmerge = pd.merge(unique_to_df2, combine, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_x'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
