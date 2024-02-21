@@ -3,6 +3,11 @@ import pandas as pd
 import json
 from collections import defaultdict
 from datetime import datetime, timedelta
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import undetected_chromedriver as uc
+import time
 import requests
 import urllib
 import pytz
@@ -155,14 +160,21 @@ stat_mapping = {
     'Kills Gm 1-2': 'Kills in Maps 1+2',
     'Shot Attempts': 'Shots Attempted',
     'Shots OnTarget': 'Shots On Target',
-    'GoaltendingSaves': 'Saves'
+    'GoaltendingSaves': 'Saves',
+    '3PM': '3-Pointers Made',
+    'Pts + Asts': 'Points + Assists',
+    'Pts + Rebs': 'Points + Rebounds',
+    'Rebs + Asts': 'Rebounds + Assists',
+    'Blks + Stls': 'Blocks + Steals',
+    'Maps 1-2 Kills': 'Kills in Maps 1+2',
+    'Maps 1-2 Assists': 'Assists on Maps 1+2',
+
 }
 
 name_mapping = {
     'Tolu Smith III': 'Tolu Smith',
     'P.J. Washington Jr.': 'PJ Washington',
-    'Myron Amey Jr.': 'Myron Amey'
-    
+    'Myron Amey Jr.': 'Myron Amey',
 }
 name_mapping2 = {
     'Cam Johnson': 'Cameron Johnson'
@@ -219,6 +231,7 @@ unique_to_df2 = unique_to_df2.sort_values(by='Player Props')
 #print(unique_to_df2) #For values that arent on ud
 
 #dabble use competitions to get ids, then for loop on requests
+#super draft use https://api.superdraft.io/api/prop/v3/active-fantasy
 def zobozoey(sport, stat, selector, jsoon, realstat):
     player_datalol = []
     for i in range(0, len(jsoon['eventGroup']['offerCategories'])):
@@ -435,10 +448,161 @@ def insanezo():
     return combine
 #Dont run insanezo if u dont want odds
 
-combine = insanezo()
-oddsmerge = pd.merge(unique_to_df2, combine, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_x'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
-oddsmerge = oddsmerge.drop(columns=['Value_y', 'Book_y', 'Value', 'Book'])
-bigmerge = pd.merge(new_df, combine, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_1'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
-bigmerge = bigmerge.drop(columns=['Value', 'Book'])
-print(bigmerge)
-print(oddsmerge)
+def vividzo():
+    combine = insanezo()
+    #combine = pd.DataFrame(columns=['League', 'Player Name', 'Player Props', 'Value', 'Book'])
+    #use if odds dont work ^
+    oddsmerge = pd.merge(unique_to_df2, combine, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_x'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
+    oddsmerge = oddsmerge.drop(columns=['Value_y', 'Book_y', 'Value', 'Book'])
+    bigmerge = pd.merge(new_df, combine, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_1'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
+    bigmerge = bigmerge.drop(columns=['Value', 'Book'])
+    print(bigmerge)
+    print(oddsmerge)
+
+
+def quack():
+    f = open('quack')
+    data = json.load(f)
+    sport = data['games'][0]['leagueName']
+    quackdatalist = []
+    quackdatadict = defaultdict(list)
+    for i in range(0, len(data['games'])):
+        for j in range(0, len(data['games'][i]['overUnders'])):
+            for k in range(0, len(data['games'][i]['overUnders'][j]['data'])):
+                if data['games'][i]['overUnders'][j]['data'][k]['combinedStat'] == False:
+                    name = (data['games'][i]['overUnders'][j]['data'][k]['playerName'])
+                    stat = (data['games'][i]['overUnders'][j]['data'][k]['statDisplay'])
+                    value = (data['games'][i]['overUnders'][j]['data'][k]['projection'])
+                    overodds = 0
+                    underodds = 0
+                    overodds1 = (data['games'][i]['overUnders'][j]['data'][k].get('overOdds'))
+                    underodds1 = (data['games'][i]['overUnders'][j]['data'][k].get('underOdds'))
+                    if overodds1 is not None:
+                        underodds = overodds1
+                    if underodds1 is not None:
+                        overodds = underodds1
+                    player_data = {
+                        "Name": name,
+                        "League": sport,
+                        "Player Props": stat,
+                        "Value": value,
+                        "Over": overodds,
+                        "Under": underodds
+                    }
+                    quackdatalist.append(player_data)
+
+    for player_info in quackdatalist:
+        league = player_info["League"]
+        player_name = player_info["Name"]
+        prop = player_info['Player Props']
+        value = player_info['Value']
+        over = player_info['Over']
+        under = player_info['Under']
+        quackdatadict["League"].append(league)
+        quackdatadict["Player Name"].append(player_name)
+        quackdatadict["Player Props"].append(prop)
+        quackdatadict["Value"].append(value)
+        quackdatadict['Book'].append('Quack')
+        quackdatadict['Over'].append(over)
+        quackdatadict['Under'].append(under)
+
+    quackdf = pd.DataFrame(quackdatadict)
+    quackdf['Player Props'] = quackdf['Player Props'].replace(stat_mapping)
+    stat_mapping3 = {
+        'Shots on Goal': 'Shots'
+    }
+    quackdf['Player Props'] = quackdf['Player Props'].replace(stat_mapping3)
+    return (quackdf)
+
+def runquack():
+    quackdf = quack()
+    quackdf['League'] = quackdf['League'].replace('LCO 2024 Split 1', 'LOL')
+    quackdf['League'] = quackdf['League'].replace('LLA 2024', 'LOL')
+    quackdf['League'] = quackdf['League'].replace('LFL 2024 Spring', 'LOL')
+    quackdf['League'] = quackdf['League'].replace('LJL Spring 2024', 'LOL')
+    quackdf['Player Name'] = quackdf['Player Name'].str.lower()
+    df2['Player Name'] = df2['Player Name'].str.lower()
+    quackmerge = pd.merge(quackdf, df2, on=['League', 'Player Name', 'Player Props'], suffixes=('_1', '_2'))
+    quackmerge['Value_2'] = quackmerge['Value_2'].astype(float)
+    cowdf = quackmerge[quackmerge['Value_1'] != quackmerge['Value_2']].copy()
+    cowdf['Value_1'] = pd.to_numeric(cowdf['Value_1'])
+    cowdf['Value_2'] = pd.to_numeric(cowdf['Value_2'])
+    cowdf['Percent_Difference'] = (abs(cowdf['Value_1'] - cowdf['Value_2']) / (
+                (cowdf['Value_1'] + cowdf['Value_2']) / 2)) * 100
+    cowdf = cowdf.sort_values(by='Percent_Difference', ascending=False)
+
+    merged2 = quackdf.merge(df2, on=['League', 'Player Name', 'Player Props'], how='left', indicator=True)
+    unique_to_df2 = merged2[merged2['_merge'] == 'left_only']
+    unique_to_df2 = unique_to_df2.drop(columns='_merge')
+    unique_to_df2 = unique_to_df2.sort_values(by='Player Props')
+
+    combine = insanezo()
+    combine['Player Name'] = combine['Player Name'].str.lower()
+    oddsmerge2 = pd.merge(unique_to_df2, combine, how='left',
+                          left_on=['League', 'Player Name', 'Player Props', 'Value_x'],
+                          right_on=['League', 'Player Name', 'Player Props', 'Value'])
+    oddsmerge2 = oddsmerge2.drop(columns=['Value_y', 'Book_y', 'Value', 'Book'])
+    bigmerge2 = pd.merge(cowdf, combine, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_1'],
+                         right_on=['League', 'Player Name', 'Player Props', 'Value'])
+    bigmerge2 = bigmerge2.drop(columns=['Value', 'Book'])
+    print(bigmerge2)
+    print(oddsmerge2)
+
+
+def prizepicks(sport):
+    options = uc.ChromeOptions()
+    options.headless = False
+    driver = uc.Chrome(options=options)
+    driver.get("https://app.prizepicks.com/")
+    time.sleep(10)
+    wait = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CLASS_NAME, "close")))
+    time.sleep(10)
+    driver.find_element(By.XPATH, "/html/body/div[3]/div[3]/div/div/div[3]/button").click()
+    time.sleep(10)
+    ppPlayers = []
+    driver.find_element(By.XPATH, "//div[@class='name'][normalize-space()='NBA']").click()
+    time.sleep(5)
+
+    stat_container = WebDriverWait(driver, 1).until(EC.visibility_of_element_located((By.CLASS_NAME, "stat-container")))
+    categories = driver.find_element(By.CSS_SELECTOR, ".stat-container").text.split('\n')
+
+    for category in categories:
+        driver.find_element(By.XPATH, f"//div[text()='{category}']").click()
+        projectionsPP = WebDriverWait(driver, 5).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".projection")))
+
+        for projetions in projectionsPP:
+            name = projetions.find_element(By.CLASS_NAME,'name').text
+            pts = projetions.find_element(By.CLASS_NAME,'presale-score').get_attribute('innerHTML')
+            proptype = projetions.find_element(By.CLASS_NAME,'text').get_attribute('innerHTML')
+
+            player = {
+                'League': sport,
+                'Player Name': name,
+                'Player Props': proptype,
+                'Value': pts
+            }
+            ppPlayers.append(player)
+
+    dfProps = pd.DataFrame(ppPlayers)
+    dfProps['Value'] = pd.to_numeric(dfProps['Value'])
+    print(dfProps.dtypes)
+    stat_mapping = {
+        "3-PT Made": "3-Pointers Made",
+        "Pts<wbr>+Rebs<wbr>+Asts": "Pts + Rebs + Asts",
+        "Pts<wbr>+Rebs": "Points + Rebounds",
+        "Pts<wbr>+Asts": "Points + Assists",
+        "Blocked Shots": "Blocks",
+        "Rebs<wbr>+Asts": "Rebounds + Assists",
+        "Blks<wbr>+Stls": "Blocks + Steals",
+    }
+    dfProps['Player Props'] = dfProps['Player Props'].replace(stat_mapping)
+    return dfProps
+
+
+def prizeduel():
+    pp = prizepicks('NBA')
+    nbas = nba()
+    merge = pd.merge(pp, nbas, on=['League', 'Player Name', 'Player Props', 'Value'], how='left')
+    print(merge.sort_values(by='Odds'))
+
+runquack()
