@@ -456,6 +456,26 @@ def vividzo():
     oddsmerge = oddsmerge.drop(columns=['Value_y', 'Book_y', 'Value', 'Book'])
     bigmerge = pd.merge(new_df, combine, how='left', left_on=['League', 'Player Name', 'Player Props', 'Value_1'], right_on= ['League', 'Player Name', 'Player Props', 'Value'])
     bigmerge = bigmerge.drop(columns=['Value', 'Book'])
+
+    def mark_special(value):
+        values = str(value).split()  # Convert to string before splitting
+        for v in values:
+            if (v.startswith('+') and int(v[1:]) >= 114) or (v.startswith('-') and int(v[1:]) >= 145):
+                return 'W'
+        return 'L'
+
+
+    # Apply the function to create a new column
+    bigmerge['W/L'] = bigmerge['Odds'].apply(lambda x: mark_special(x))
+    oddsmerge['W/L'] = oddsmerge['Odds'].apply(lambda x: mark_special(x))
+    mask = ~bigmerge['League'].isin(['LOL', 'VAL']) & (bigmerge['Percent_Difference'] >= 15)
+    bigmerge.loc[mask, 'W/L'] = 'W'
+    mask2 = abs(bigmerge['Value_1'] - bigmerge['Value_2']) >= 3
+    bigmerge.loc[mask2, 'W/L'] = 'W'
+    wtable1 = bigmerge[bigmerge['W/L'].str.contains('W')]
+    wtable2 = oddsmerge[oddsmerge['W/L'].str.contains('W')]
+    wtable = pd.concat([wtable1, wtable2])
+    print(wtable)
     print(bigmerge)
     print(oddsmerge)
 
